@@ -25,10 +25,10 @@ First, create the PostgreSQL database and run the migration:
 
 ```bash
 # Create database
-createdb documents_db
+createdb aliciadata_chat
 
 # Run migration
-psql -d documents_db -f migrations/001_create_documents_table.sql
+psql -d aliciadata_chat -f migrations/001_create_documents_table.sql
 ```
 
 ### 2. Environment Configuration
@@ -48,7 +48,7 @@ Update the `.env` file with your actual PostgreSQL credentials:
 ```env
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=documents_db
+DB_NAME=aliciadata_chat
 DB_USER=your_username
 DB_PASSWORD=your_password
 ```
@@ -188,12 +188,12 @@ DELETE FROM documents WHERE deleted_at IS NOT NULL;
 
 - Verify PostgreSQL is running: `pg_isready`
 - Check credentials in `.env` file
-- Ensure database exists: `psql -l | grep documents_db`
+- Ensure database exists: `psql -l | grep aliciadata_chat`
 
 ### Permission Errors
 
 - Ensure database user has CREATE/INSERT/UPDATE/DELETE privileges
-- Grant permissions: `GRANT ALL PRIVILEGES ON DATABASE documents_db TO your_username;`
+- Grant permissions: `GRANT ALL PRIVILEGES ON DATABASE aliciadata_chat TO your_username;`
 
 ### Duplicate Name Error
 

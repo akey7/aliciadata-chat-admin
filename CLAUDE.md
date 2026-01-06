@@ -103,12 +103,12 @@ CREATE TRIGGER update_documents_updated_at
 # PostgreSQL Database Configuration
 DB_HOST=localhost
 DB_PORT=5432
-DB_NAME=documents_db
+DB_NAME=aliciadata_chat
 DB_USER=your_username
 DB_PASSWORD=your_password
 
 # Optional: Connection string format (alternative to individual variables)
-# DATABASE_URL=postgresql://user:password@localhost:5432/documents_db
+# DATABASE_URL=postgresql://user:password@localhost:5432/aliciadata_chat
 ```
 
 ## Database Module (`src/db.py`)
@@ -423,10 +423,10 @@ Include sections for:
 ### 2. Database Setup
 ```bash
 # Create database
-createdb documents_db
+createdb aliciadata_chat
 
 # Run migration
-psql -d documents_db -f migrations/001_create_documents_table.sql
+psql -d aliciadata_chat -f migrations/001_create_documents_table.sql
 ```
 
 ### 3. Application Setup
@@ -533,11 +533,11 @@ DELETE FROM documents WHERE deleted_at IS NOT NULL;
 **Connection Errors:**
 - Verify PostgreSQL is running: `pg_isready`
 - Check credentials in `.env` file
-- Ensure database exists: `psql -l | grep documents_db`
+- Ensure database exists: `psql -l | grep aliciadata_chat`
 
 **Permission Errors:**
 - Ensure database user has CREATE/INSERT/UPDATE/DELETE privileges
-- Grant permissions: `GRANT ALL PRIVILEGES ON DATABASE documents_db TO your_username;`
+- Grant permissions: `GRANT ALL PRIVILEGES ON DATABASE aliciadata_chat TO your_username;`
 
 **Duplicate Name Error:**
 - Document names must be unique
