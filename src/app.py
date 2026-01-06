@@ -100,24 +100,48 @@ def on_clear_search() -> Tuple[str, gr.Dataframe]:
     return "", gr.Dataframe(value=data)
 
 
+def is_form_empty(jd: str, resume: str, summary: str, name: str) -> bool:
+    """
+    Check if all form fields are empty.
+
+    Args:
+        jd: Job description text
+        resume: Resume text
+        summary: Summary text
+        name: Name text
+
+    Returns:
+        True if all fields are empty, False otherwise
+    """
+    return not any([jd.strip(), resume.strip(), summary.strip(), name.strip()])
+
+
 def on_row_select(
-    evt: gr.SelectData, dataframe_data: List[List[Any]]
-) -> Tuple[str, str, str, str, int, str, gr.Button]:
+    evt: gr.SelectData, dataframe_data: Any
+) -> Tuple[str, str, str, str, int, str, gr.Button, gr.Button]:
     """
     Populate form fields when a row is clicked.
 
     Args:
         evt: SelectData event containing row index
-        dataframe_data: Current dataframe data
+        dataframe_data: Current dataframe data (pandas DataFrame or list)
 
     Returns:
-        Tuple of (jd, resume, summary, name, selected_id, original_name, delete_button)
+        Tuple of (jd, resume, summary, name, selected_id, original_name, delete_button, clear_form_button)
     """
-    if not dataframe_data or evt.index[0] >= len(dataframe_data):
-        return "", "", "", "", None, None, gr.Button(interactive=False)
-
-    row = dataframe_data[evt.index[0]]
-    doc_id = row[0]
+    # Handle pandas DataFrame
+    import pandas as pd
+    if isinstance(dataframe_data, pd.DataFrame):
+        if dataframe_data.empty or evt.index[0] >= len(dataframe_data):
+            return "", "", "", "", None, None, gr.Button(interactive=False), gr.Button(interactive=False)
+        row = dataframe_data.iloc[evt.index[0]]
+        doc_id = int(row.iloc[0])
+    else:
+        # Handle list
+        if not dataframe_data or evt.index[0] >= len(dataframe_data):
+            return "", "", "", "", None, None, gr.Button(interactive=False), gr.Button(interactive=False)
+        row = dataframe_data[evt.index[0]]
+        doc_id = row[0]
 
     # Fetch FULL document data from database (not truncated preview)
     try:
@@ -131,11 +155,12 @@ def on_row_select(
                 doc[0],  # selected_id
                 doc[1],  # original_name
                 gr.Button(interactive=True),  # enable delete button
+                gr.Button(interactive=True),  # enable clear form button
             )
     except Exception as e:
         print(f"Error fetching document {doc_id}: {e}")
 
-    return "", "", "", "", None, None, gr.Button(interactive=False)
+    return "", "", "", "", None, None, gr.Button(interactive=False), gr.Button(interactive=False)
 
 
 def submit_or_update(
@@ -146,7 +171,7 @@ def submit_or_update(
     jd: str,
     summary: str,
     search_term: str,
-) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button]:
+) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button, gr.Button]:
     """
     Create new or update existing document.
 
@@ -160,11 +185,12 @@ def submit_or_update(
         search_term: Current search filter
 
     Returns:
-        Tuple of (jd, resume, summary, name, None, None, dataframe, delete_button)
+        Tuple of (jd, resume, summary, name, None, None, dataframe, delete_button, clear_form_button)
     """
     # Validate name
     if not name or not name.strip():
         gr.Warning("Name is required")
+        form_has_content = not is_form_empty(jd, resume, summary, name)
         return (
             jd,
             resume,
@@ -174,6 +200,7 @@ def submit_or_update(
             original_name,
             gr.Dataframe(value=load_documents(search_term)),
             gr.Button(interactive=bool(selected_id)),
+            gr.Button(interactive=form_has_content),
         )
 
     try:
@@ -192,9 +219,11 @@ def submit_or_update(
                     None,
                     gr.Dataframe(value=load_documents(search_term)),
                     gr.Button(interactive=False),
+                    gr.Button(interactive=False),
                 )
             else:
                 gr.Warning(message)
+                form_has_content = not is_form_empty(jd, resume, summary, name)
                 return (
                     jd,
                     resume,
@@ -204,6 +233,7 @@ def submit_or_update(
                     original_name,
                     gr.Dataframe(value=load_documents(search_term)),
                     gr.Button(interactive=bool(selected_id)),
+                    gr.Button(interactive=form_has_content),
                 )
         else:
             # Update existing document
@@ -220,9 +250,11 @@ def submit_or_update(
                     None,
                     gr.Dataframe(value=load_documents(search_term)),
                     gr.Button(interactive=False),
+                    gr.Button(interactive=False),
                 )
             else:
                 gr.Warning(message)
+                form_has_content = not is_form_empty(jd, resume, summary, name)
                 return (
                     jd,
                     resume,
@@ -232,9 +264,11 @@ def submit_or_update(
                     original_name,
                     gr.Dataframe(value=load_documents(search_term)),
                     gr.Button(interactive=bool(selected_id)),
+                    gr.Button(interactive=form_has_content),
                 )
     except Exception as e:
         gr.Error(f"Database error: {str(e)}")
+        form_has_content = not is_form_empty(jd, resume, summary, name)
         return (
             jd,
             resume,
@@ -244,12 +278,13 @@ def submit_or_update(
             original_name,
             gr.Dataframe(value=load_documents(search_term)),
             gr.Button(interactive=bool(selected_id)),
+            gr.Button(interactive=form_has_content),
         )
 
 
 def delete_record(
     selected_id: Optional[int], search_term: str
-) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button]:
+) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button, gr.Button]:
     """
     Soft delete selected document.
 
@@ -258,7 +293,7 @@ def delete_record(
         search_term: Current search filter
 
     Returns:
-        Tuple of (empty fields, None, None, dataframe, delete_button)
+        Tuple of (empty fields, None, None, dataframe, delete_button, clear_form_button)
     """
     if selected_id is None:
         gr.Warning("No document selected")
@@ -270,6 +305,7 @@ def delete_record(
             None,
             None,
             gr.Dataframe(value=load_documents(search_term)),
+            gr.Button(interactive=False),
             gr.Button(interactive=False),
         )
 
@@ -290,6 +326,7 @@ def delete_record(
             None,
             gr.Dataframe(value=load_documents(search_term)),
             gr.Button(interactive=False),
+            gr.Button(interactive=False),
         )
     except Exception as e:
         gr.Error(f"Database error: {str(e)}")
@@ -302,12 +339,13 @@ def delete_record(
             None,
             gr.Dataframe(value=load_documents(search_term)),
             gr.Button(interactive=False),
+            gr.Button(interactive=False),
         )
 
 
 def clear_form(
     search_term: str,
-) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button]:
+) -> Tuple[str, str, str, str, None, None, gr.Dataframe, gr.Button, gr.Button]:
     """
     Reset form to initial state.
 
@@ -315,7 +353,7 @@ def clear_form(
         search_term: Current search filter
 
     Returns:
-        Tuple of (empty fields, None, None, current dataframe, delete_button)
+        Tuple of (empty fields, None, None, current dataframe, delete_button, clear_form_button)
     """
     return (
         "",
@@ -326,7 +364,27 @@ def clear_form(
         None,
         gr.Dataframe(value=load_documents(search_term)),
         gr.Button(interactive=False),
+        gr.Button(interactive=False),
     )
+
+
+def on_form_change(
+    jd: str, resume: str, summary: str, name: str
+) -> gr.Button:
+    """
+    Update clear form button state based on form content.
+
+    Args:
+        jd: Job description text
+        resume: Resume text
+        summary: Summary text
+        name: Name text
+
+    Returns:
+        Updated clear form button
+    """
+    form_has_content = not is_form_empty(jd, resume, summary, name)
+    return gr.Button(interactive=form_has_content)
 
 
 def create_ui() -> gr.Blocks:
@@ -349,15 +407,6 @@ def create_ui() -> gr.Blocks:
         # State variables
         selected_row_id = gr.State(None)
         original_name = gr.State(None)
-
-        # Row 0: Search
-        with gr.Row():
-            search_textbox = gr.Textbox(
-                label="Search by Name",
-                placeholder="Type to filter documents...",
-                scale=3,
-            )
-            clear_search_button = gr.Button("Clear Search", scale=1)
 
         # Row 1: Document Content
         with gr.Row():
@@ -391,9 +440,21 @@ def create_ui() -> gr.Blocks:
             delete_button = gr.Button(
                 "Delete", variant="stop", interactive=False, scale=1
             )
-            clear_form_button = gr.Button("Clear Form", variant="secondary", scale=1)
+            clear_form_button = gr.Button("Clear Form", variant="secondary", interactive=False, scale=1)
 
-        # Row 4: Data Display
+        # Horizontal rule separator
+        gr.Markdown("---")
+
+        # Row 4: Search (above table)
+        with gr.Row():
+            search_textbox = gr.Textbox(
+                label="Search by Name",
+                placeholder="Type to filter documents...",
+                scale=3,
+            )
+            clear_search_button = gr.Button("Clear Search", scale=1)
+
+        # Row 5: Data Display
         dataframe = gr.Dataframe(
             headers=["ID", "Name", "Resume (preview)", "JD (preview)", "Summary", "Updated"],
             datatype=["number", "str", "str", "str", "str", "str"],
@@ -426,6 +487,7 @@ def create_ui() -> gr.Blocks:
                 selected_row_id,
                 original_name,
                 delete_button,
+                clear_form_button,
             ],
         )
 
@@ -450,6 +512,7 @@ def create_ui() -> gr.Blocks:
                 original_name,
                 dataframe,
                 delete_button,
+                clear_form_button,
             ],
         )
 
@@ -466,6 +529,7 @@ def create_ui() -> gr.Blocks:
                 original_name,
                 dataframe,
                 delete_button,
+                clear_form_button,
             ],
         )
 
@@ -482,8 +546,17 @@ def create_ui() -> gr.Blocks:
                 original_name,
                 dataframe,
                 delete_button,
+                clear_form_button,
             ],
         )
+
+        # Form field change handlers - enable/disable clear form button
+        for field in [jd_textbox, resume_textbox, summary_textbox, name_textbox]:
+            field.change(
+                fn=on_form_change,
+                inputs=[jd_textbox, resume_textbox, summary_textbox, name_textbox],
+                outputs=[clear_form_button],
+            )
 
     return demo
 
